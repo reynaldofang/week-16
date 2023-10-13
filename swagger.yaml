@@ -1,0 +1,111 @@
+openapi: 3.0.0
+info:
+  title: week 10
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local Server
+  - url : https://week11-reynaldofang.cyclic.app
+    description: Cyclic server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /register:
+    post:
+      tags:
+        - default
+      summary: register user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                username: jay
+                password: reynaldo88
+                role: approver
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json: {}
+  /login:
+    post:
+      tags:
+        - default
+      summary: login user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                username: angel
+                password: reynaldo88
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json: {}
+  /transfers/create:
+    post:
+      tags:
+        - default
+      summary: create transfer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                title: jajan
+                amount: 85000
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json: {}
+  /transfers/transfer-list:
+    get:
+      tags:
+        - default
+      summary: get transfer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json: {}
+  /transfers/change-status/{transferId}:
+    patch:
+      tags:
+        - default
+      summary: update accept
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                status: decline
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json: {}
