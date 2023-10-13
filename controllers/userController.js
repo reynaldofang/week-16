@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_ATTEMPT_WINDOW_MINUTES = 1;
@@ -16,7 +17,7 @@ const generateAccessToken = (user) => {
 
 const generateRefreshToken = () => {
   const refreshToken = jwt.sign({}, "your-refresh-secret-key", {
-    expiresIn: "7d", // 7 days
+    expiresIn: "7d",
   });
   return refreshToken;
 };
@@ -51,13 +52,11 @@ const createUser = async (req, res) => {
   }
 
   try {
-    // Check if username already exists
     const existingUser = await req.db.collection("users").findOne({ username });
     if (existingUser) {
       return res.status(400).json({ error: "Username already exists." });
     }
 
-    // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await req.db.collection("users").insertOne({
@@ -78,7 +77,6 @@ const createUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { username, password } = req.body;
 
-  // Check if the user has exceeded the maximum login attempts
   if (
     loginAttempts.has(username) &&
     loginAttempts.get(username).count >= MAX_LOGIN_ATTEMPTS
@@ -106,7 +104,6 @@ const loginUser = async (req, res) => {
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      // Increment login attempts for the user
       if (!loginAttempts.has(username)) {
         loginAttempts.set(username, { count: 1, timestamp: Date.now() });
       } else {
@@ -116,7 +113,6 @@ const loginUser = async (req, res) => {
       throw new Error("Invalid credentials.");
     }
 
-    // If login is successful, reset login attempts for the user
     loginAttempts.delete(username);
 
     const token = generateAccessToken({
@@ -126,7 +122,6 @@ const loginUser = async (req, res) => {
     });
     const refreshToken = generateRefreshToken();
 
-    // Store the refresh token in a map for future use
     refreshTokenMap.set(username, refreshToken);
 
     res.json({
@@ -134,13 +129,56 @@ const loginUser = async (req, res) => {
       tokens: {
         access_token: token,
         refresh_token: refreshToken,
-        expires_in: 3600, // 1 hour in seconds
+        expires_in: 3600,
       },
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(401).json({ error: error.message });
   }
+};
+
+const generateResetToken = () => {
+  // Generate a reset token here (e.g., a random string)
+  // You can use a library like crypto to create a secure token
+  const resetToken = generateRandomToken(); // Implement this function
+  return resetToken;
+};
+
+const generateRandomToken = (length = 32) => {
+  return crypto.randomBytes(length).toString("hex");
+};
+const resetTokens = new Map(); // Store reset tokens (in-memory, you might use a database in production)
+
+const resetPasswordRequest = async (req, res) => {
+  const { username } = req.body;
+  // Check if the username exists in your database
+  const user = await req.db.collection("users").findOne({ username });
+  if (!user) {
+    return res.status(404).json({ error: "User not found." });
+  }
+  // Generate a reset token and store it
+  const resetToken = generateRandomToken(); // Use the generateRandomToken function
+  resetTokens.set(username, resetToken);
+  res.json({ message: "Reset token sent.", resetToken });
+  // Send the reset token to the user (e.g., via Postman response)
+};
+
+const resetPassword = async (req, res) => {
+  const { username, newPassword, resetToken } = req.body;
+  // Verify the reset token
+  const storedResetToken = resetTokens.get(username);
+  if (!storedResetToken || storedResetToken !== resetToken) {
+    return res.status(401).json({ error: "Invalid or expired reset token." });
+  }
+  // Update the user's password in your database
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await req.db
+    .collection("users")
+    .updateOne({ username }, { $set: { password: hashedPassword } });
+  // Remove the used reset token
+  resetTokens.delete(username);
+  res.json({ message: "Password reset successfully." });
 };
 
 const getAllUsers = (req, res) => {
@@ -159,4 +197,6 @@ module.exports = {
   createUser,
   loginUser,
   getAllUsers,
+  resetPasswordRequest,
+  resetPassword,
 };
