@@ -87,7 +87,7 @@ const loginUser = async (req, res) => {
     if (elapsedTime < LOGIN_ATTEMPT_TIMEOUT) {
       return res.status(401).json({
         error: `Maximum login attempts exceeded. Please try again after ${
-          (LOGIN_ATTEMPT_TIMEOUT - elapsedTime) / 1000
+          (LOGIN_ATTEMPT_WINDOW_MINUTES * 60 * 1000 - elapsedTime) / 1000
         } seconds.`,
       });
     } else {
@@ -138,30 +138,21 @@ const loginUser = async (req, res) => {
   }
 };
 
-const generateResetToken = () => {
-  // Generate a reset token here (e.g., a random string)
-  // You can use a library like crypto to create a secure token
-  const resetToken = generateRandomToken(); // Implement this function
-  return resetToken;
-};
-
 const generateRandomToken = (length = 32) => {
   return crypto.randomBytes(length).toString("hex");
 };
-const resetTokens = new Map(); // Store reset tokens (in-memory, you might use a database in production)
+const resetTokens = new Map();
 
 const resetPasswordRequest = async (req, res) => {
   const { username } = req.body;
-  // Check if the username exists in your database
   const user = await req.db.collection("users").findOne({ username });
   if (!user) {
     return res.status(404).json({ error: "User not found." });
   }
   // Generate a reset token and store it
-  const resetToken = generateRandomToken(); // Use the generateRandomToken function
+  const resetToken = generateRandomToken();
   resetTokens.set(username, resetToken);
   res.json({ message: "Reset token sent.", resetToken });
-  // Send the reset token to the user (e.g., via Postman response)
 };
 
 const resetPassword = async (req, res) => {
